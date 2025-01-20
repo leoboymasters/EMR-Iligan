@@ -5,25 +5,40 @@ import json
 
 def analyze_with_llama(text):
     """Use LLAMA to analyze the medical text"""
-    prompt = f"""Extract the medical information from this note. Return ONLY a JSON object with this structure:
+    prompt = f"""Extract medical information from this note. Format each finding and plan item with a bullet point. Return the data in this exact format:
 {{
     "patient_demographics": {{
-        "name": "",
-        "age": "",
-        "gender": "",
-        "address": ""
+        "name": "patient name here",
+        "age": "age here",
+        "gender": "gender here",
+        "address": "address here"
     }},
     "vitals": {{
-        "blood_pressure": "",
-        "heart_rate": "",
-        "temperature": "",
-        "spo2": ""
+        "blood_pressure": "BP here",
+        "heart_rate": "HR here",
+        "temperature": "temp here",
+        "spo2": "spo2 here"
     }},
-    "chief_complaint": "",
-    "physical_exam": "",
-    "diagnosis": "",
-    "plan": ""
+    "chief_complaint": "main complaint here",
+    "physical_exam": [
+        "• HEENT: unremarkable",
+        "• Skin: cold and clammy",
+        "• Chest: clear to auscultation"
+    ],
+    "diagnosis": "diagnosis/impression here",
+    "plan": [
+        "• Medication 1 with dose and frequency",
+        "• Medication 2 with dose and frequency",
+        "• Test or procedure 1",
+        "• Instructions 1"
+    ]
 }}
+
+For the physical_exam and plan sections:
+1. Start each line with a bullet point (•)
+2. Include proper section labels in physical exam
+3. Include complete medication instructions in plan
+4. Keep the format exactly as shown
 
 Medical Note:
 {text}"""
@@ -43,21 +58,25 @@ Medical Note:
             }
         )
         
-        # Combine the streaming output
+        # Combine streaming output
         response = ""
         for item in output:
             response += item
             
-        # Find JSON in response
+        # Debug output
+        st.text("Raw LLAMA response:")
+        st.code(response)
+        
+        # Extract JSON
         start = response.find('{')
         end = response.rfind('}') + 1
         if start != -1 and end != -1:
             json_str = response[start:end]
             try:
                 return json.loads(json_str)
-            except json.JSONDecodeError:
-                st.error("Could not parse LLAMA output")
-                st.code(json_str)  # Show the problematic JSON
+            except json.JSONDecodeError as e:
+                st.error(f"JSON parsing error: {str(e)}")
+                st.code(json_str)
                 return None
         return None
     except Exception as e:
@@ -65,8 +84,8 @@ Medical Note:
         return None
 
 def main():
-    st.title("Medical Notes Analysis")
-
+    st.title("EMR System")
+    
     # API token handling
     if 'REPLICATE_API_TOKEN' in st.secrets:
         replicate_api = st.secrets['REPLICATE_API_TOKEN']
@@ -77,7 +96,7 @@ def main():
             return
     
     os.environ['REPLICATE_API_TOKEN'] = replicate_api
-
+    
     # Create two columns
     left_col, right_col = st.columns([1, 1])
     
@@ -124,18 +143,28 @@ def main():
                 st.text_input("Temperature", value=vitals.get('temperature', ''))
                 st.text_input("SpO2", value=vitals.get('spo2', ''))
             
-            # Other Information
+            # Clinical Information
             st.markdown("### Clinical Information")
-            st.text_area("Chief Complaint", value=data.get('chief_complaint', ''))
-            st.text_area("Physical Examination", value=data.get('physical_exam', ''))
-            st.text_area("Diagnosis", value=data.get('diagnosis', ''))
-            st.text_area("Plan", value=data.get('plan', ''))
+            st.text_area("Chief Complaint", value=data.get('chief_complaint', ''), height=100)
             
-            # Save Button
+            # Physical Examination
+            st.markdown("### Physical Examination")
+            # Convert list to string with line breaks
+            physical_exam_text = "\n".join(data.get('physical_exam', []))
+            st.text_area("Physical Exam Findings", value=physical_exam_text, height=200)
+            
+            # Diagnosis
+            st.markdown("### Diagnosis")
+            st.text_area("Impression", value=data.get('diagnosis', ''), height=100)
+            
+            # Plan
+            st.markdown("### Plan")
+            # Convert list to string with line breaks
+            plan_text = "\n".join(data.get('plan', []))
+            st.text_area("Orders", value=plan_text, height=200)
+            
             if st.button("Save EMR"):
                 st.success("EMR saved successfully!")
-                # Here you would typically save to a database
-                
         else:
             st.info("Enter notes and click 'Generate EMR' to see the form")
 
