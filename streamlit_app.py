@@ -62,10 +62,6 @@ Medical Note:
         response = ""
         for item in output:
             response += item
-            
-        # Debug output
-        st.text("Raw LLAMA response:")
-        st.code(response)
         
         # Extract JSON
         start = response.find('{')
@@ -74,16 +70,21 @@ Medical Note:
             json_str = response[start:end]
             try:
                 return json.loads(json_str)
-            except json.JSONDecodeError as e:
-                st.error(f"JSON parsing error: {str(e)}")
-                st.code(json_str)
+            except json.JSONDecodeError:
+                st.error("Error processing the note. Please try again.")
                 return None
         return None
     except Exception as e:
-        st.error(f"Error: {str(e)}")
+        st.error("An error occurred. Please try again.")
         return None
 
 def main():
+    st.set_page_config(
+        page_title="EMR System",
+        layout="wide",
+        initial_sidebar_state="collapsed"
+    )
+    
     st.title("EMR System")
     
     # API token handling
@@ -103,17 +104,17 @@ def main():
     # Left column for note input
     with left_col:
         st.subheader("Medical Notes")
-        notes = st.text_area("Enter medical notes", height=400)
+        notes = st.text_area("Enter medical notes", height=400, placeholder="Enter patient notes here...")
         
         if st.button("Generate EMR", type="primary"):
             if notes:
-                with st.spinner("Analyzing with LLAMA..."):
+                with st.spinner("Processing medical notes..."):
                     result = analyze_with_llama(notes)
                     if result:
                         st.session_state.emr_data = result
-                        st.success("Analysis complete!")
+                        st.success("EMR generated successfully!")
             else:
-                st.warning("Please enter notes first")
+                st.warning("Please enter medical notes first.")
     
     # Right column for form display
     with right_col:
@@ -126,45 +127,49 @@ def main():
             demographics = data.get('patient_demographics', {})
             col1, col2 = st.columns(2)
             with col1:
-                st.text_input("Name", value=demographics.get('name', ''))
-                st.text_input("Age", value=demographics.get('age', ''))
+                st.text_input("Name", value=demographics.get('name', ''), key="name")
+                st.text_input("Age", value=demographics.get('age', ''), key="age")
             with col2:
-                st.text_input("Gender", value=demographics.get('gender', ''))
-                st.text_input("Address", value=demographics.get('address', ''))
+                st.text_input("Gender", value=demographics.get('gender', ''), key="gender")
+                st.text_input("Address", value=demographics.get('address', ''), key="address")
             
             # Vital Signs
             st.markdown("### Vital Signs")
             vitals = data.get('vitals', {})
             col1, col2 = st.columns(2)
             with col1:
-                st.text_input("Blood Pressure", value=vitals.get('blood_pressure', ''))
-                st.text_input("Heart Rate", value=vitals.get('heart_rate', ''))
+                st.text_input("Blood Pressure", value=vitals.get('blood_pressure', ''), key="bp")
+                st.text_input("Heart Rate", value=vitals.get('heart_rate', ''), key="hr")
             with col2:
-                st.text_input("Temperature", value=vitals.get('temperature', ''))
-                st.text_input("SpO2", value=vitals.get('spo2', ''))
+                st.text_input("Temperature", value=vitals.get('temperature', ''), key="temp")
+                st.text_input("SpO2", value=vitals.get('spo2', ''), key="spo2")
             
             # Clinical Information
             st.markdown("### Clinical Information")
-            st.text_area("Chief Complaint", value=data.get('chief_complaint', ''), height=100)
+            st.text_area("Chief Complaint", value=data.get('chief_complaint', ''), 
+                        height=100, key="chief_complaint")
             
             # Physical Examination
             st.markdown("### Physical Examination")
-            # Convert list to string with line breaks
             physical_exam_text = "\n".join(data.get('physical_exam', []))
-            st.text_area("Physical Exam Findings", value=physical_exam_text, height=200)
+            st.text_area("Physical Exam Findings", value=physical_exam_text, 
+                        height=200, key="physical_exam")
             
             # Diagnosis
-            st.markdown("### Diagnosis")
-            st.text_area("Impression", value=data.get('diagnosis', ''), height=100)
+            st.markdown("### Assessment")
+            st.text_area("Impression", value=data.get('diagnosis', ''), 
+                        height=100, key="diagnosis")
             
             # Plan
             st.markdown("### Plan")
-            # Convert list to string with line breaks
             plan_text = "\n".join(data.get('plan', []))
-            st.text_area("Orders", value=plan_text, height=200)
+            st.text_area("Orders", value=plan_text, height=200, key="plan")
             
-            if st.button("Save EMR"):
-                st.success("EMR saved successfully!")
+            # Save button in a container for better spacing
+            with st.container():
+                st.write("")  # Add some space
+                if st.button("Save EMR", type="primary", key="save"):
+                    st.success("EMR saved successfully!")
         else:
             st.info("Enter notes and click 'Generate EMR' to see the form")
 
